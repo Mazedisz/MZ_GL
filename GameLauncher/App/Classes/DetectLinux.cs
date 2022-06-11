@@ -1,31 +1,58 @@
 ﻿using Microsoft.Win32;
 using System;
+using System.Diagnostics;
+using System.IO;
 
 namespace GameLauncher.App.Classes {
     class DetectLinux {
-        public static bool WineDetected() {
-            bool wine = false;
-            try {
-                RegistryKey regKey = Registry.CurrentUser;
-                RegistryKey rkTest = regKey.OpenSubKey(@"Software\Wine");
+        private static string _linuxDistro = null;
 
-                if (!String.IsNullOrEmpty(rkTest.ToString())) {
-                    wine = true;
-                }
-            } catch {
-                wine = false;
+		public static bool LinuxDetected() {
+            return Type.GetType("Mono.Runtime") != null;
+        }
+
+        public static string Distro() {
+            if(_linuxDistro == null) {
+                _linuxDistro = LinuxDistroInternal();
             }
 
-            return wine;
+            return _linuxDistro;
         }
 
-        public static bool MonoDetected() {
-            int SysVersion = (int)Environment.OSVersion.Platform;
-            return (SysVersion == 4 || SysVersion == 6 || SysVersion == 128);
+        public static bool IsValidWineMonoInstalled() {
+            return true;
         }
 
-        public static bool LinuxDetected() {
-            return WineDetected() || MonoDetected();
+        private static string LinuxDistroInternal() {
+            if (!File.Exists("/etc/os-release")) {
+                return "UNIX-Like System";
+            }
+
+            using (var stream = new StreamReader("/etc/os-release")) {
+                string line;
+                while ((line = stream.ReadLine()) != null) {
+                    var splits = line.Split(new[] { '=' }, 2);
+                    if (splits[0] == "PRETTY_NAME") {
+                        var val = splits[1];
+
+                        if (val[0] == '"') {
+                            val = val.Substring(1);
+                        }
+
+                        if (val[val.Length - 1] == '"') {
+                            val = val.Substring(0, val.Length - 1);
+                        }
+
+                        if (val == "Arch Linux" && new Random().NextDouble() < 0.2) {
+                            return "btw i use arch";
+                        }
+
+                        return val;
+                    }
+                }
+            }
+
+            return "Linux";
         }
     }
 }

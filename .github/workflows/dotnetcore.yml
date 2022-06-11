@@ -1,0 +1,24 @@
+name: GameLauncher Reborn Build
+
+on: [push]
+ 
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup Nuget.exe
+      uses: warrenbuckley/Setup-Nuget@v1
+    - name: Restore packages
+      run: nuget restore GameLauncher.sln
+    - name: Setup MSBuild.exe
+      uses: warrenbuckley/Setup-MSBuild@v1
+    - name: Build with MSBuild
+      run: msbuild GameLauncher.sln -p:Configuration=Debug
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: ArtifactBuild
+        path: |
+          ${{ github.workspace }}/GameLauncher/bin/Debug/GameLauncher.exe
+          ${{ github.workspace }}/GameLauncher/bin/Debug/*.dll
