@@ -8,7 +8,7 @@ namespace SoapBox.JsonScheme {
         public string discordUrl { get; set; }
         public string serverName { get; set; }
         public string country { get; set; }
-        public int timezone { get; set; }
+        public int? timezone { get; set; }
         public string bannerUrl { get; set; }
         public string adminList { get; set; }
         public string ownerList { get; set; }
@@ -18,5 +18,20 @@ namespace SoapBox.JsonScheme {
         public int onlineNumber { get; set; }
         public string requireTicket { get; set; }
         public string serverVersion { get; set; }
+        public int maxUsersAllowed { get; set; }
+        public string allowedCountries { get; set; }
+        public string freeroamMapSocket { get; set; }
+        public List<string> freeroamServers { get; set; }
+        public string modernAuthSupport { get; set; }
+        public int secondsToShutDown { get; set; }
+        public string modsUrl { get; set; }
+        public string webSignupUrl { get; set; }
+        public string webRecoveryUrl { get; set; }
+        public bool rwacallow { get; set; }
+    }
+
+    public class FreeroamObject {
+        public int[] position { get; set; }
+        public string username { get; set; }
     }
 }
