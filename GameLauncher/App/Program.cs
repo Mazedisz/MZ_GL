@@ -5,100 +5,158 @@ using System.IO;
 using System.Threading;
 using System.Windows.Forms;
 using GameLauncher.App.Classes;
+using GameLauncherReborn;
 
-namespace GameLauncher {
-    static class Program {
+namespace GameLauncher
+{
+    internal static class Program
+    {
         [STAThread]
-        static void Main() {
-            int SysVersion = (int)Environment.OSVersion.Platform;
-            bool mono = DetectLinux.MonoDetected();
-            bool wine = DetectLinux.WineDetected();
-            bool linux = DetectLinux.LinuxDetected();
+        internal static void Main()
+        {
+            var linux = DetectLinux.NativeLinuxDetected();
 
-            //Remove zip file
-            File.Delete(Directory.GetCurrentDirectory() + "\\tempname.zip");
+            Directory.SetCurrentDirectory(Path.GetDirectoryName(Application.ExecutablePath) ?? throw new InvalidOperationException());
 
-            //Console log with warning
-            if (mono == true) {
-                MessageBox.Show(null, "Mono support is still under alpha stage. Therefore, launcher could not launch.", "GameLauncher.exe", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            } else if (wine == true) {
-                //It's completed, fully compatible since now :)
-                //MessageBox.Show(null, "Wine support is still under alpha stage. Therefore, launcher could not launch.", "GameLauncher.exe", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (Self.isTempFolder(Directory.GetCurrentDirectory()))
+            {
+                MessageBox.Show(null, "Please, extract me and my DLL files before executing...", "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Stop);
+                Environment.Exit(0);
             }
 
-            //Add LZMA.dll on the fly (used for decompression of section{int}.dll files)
-            if (!File.Exists("LZMA.dll")) {
+            if (!Directory.Exists("Languages"))
+            {
+                Directory.CreateDirectory("Languages");
+            }
+
+            try
+            {
+                File.Delete("Languages/Default.lng");
+                File.WriteAllText("Languages/Default.lng", ExtractResource.AsString("GameLauncher.Language.Default.lng"));
+            }
+            catch
+            {
+                // ignored
+            }
+
+            try
+            {
+                File.Delete(Directory.GetCurrentDirectory() + "\\tempname.zip");
+            }
+            catch
+            {
+                // ignored
+            }
+
+            if (!File.Exists("LZMA.dll"))
+            {
                 File.WriteAllBytes("LZMA.dll", ExtractResource.AsByte("GameLauncher.LZMA.LZMA.dll"));
             }
 
-            //Add GameLauncherUpdater.exe on the fly
-            if (!File.Exists("GameLauncherUpdater.exe")) {
-                File.WriteAllBytes("GameLauncherUpdater.exe", ExtractResource.AsByte("GameLauncher.Updater.GameLauncherUpdater.exe"));
+            if (!linux && !File.Exists("discord-rpc.dll"))
+            {
+                File.WriteAllBytes("discord-rpc.dll", ExtractResource.AsByte("GameLauncher.Discord.discord-rpc.dll"));
             }
 
-            //Detect if NFSW is launched
-            Mutex detectRunningNFSW = new Mutex(false, "Global\\{3E34CEFB-7B34-4e62-8034-33256B8BC2F7}");
-            try {
-                if (!detectRunningNFSW.WaitOne(0, false)) {
+            if (linux && !File.Exists("libdiscord-rpc.so"))
+            {
+                File.WriteAllBytes("libdiscord-rpc.so", ExtractResource.AsByte("GameLauncher.Discord.libdiscord-rpc.so"));
+            }
+
+			if (File.Exists("GL_Update.exe")) {
+				File.Delete("GL_Update.exe");
+			}
+
+			if(!File.Exists("GameLauncherUpdater.exe")) {
+				try
+				{
+					File.WriteAllBytes("GameLauncherUpdater.exe", new WebClientWithTimeout().DownloadData("http://launcher.soapboxrace.world/GameLauncherUpdater.exe"));
+				}
+				catch
+				{
+					// ignored
+				}
+			}
+            if (!File.Exists("servers.json"))
+            {
+                try
+                {
+                    File.WriteAllText("servers.json", "[]");
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
+            if (Debugger.IsAttached)
+            {
+                ServerProxy.Instance.Start();
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainScreen());
+            }
+            else
+            {
+                if (NFSW.isNFSWRunning())
+                {
                     MessageBox.Show(null, "An instance of Need for Speed: World is already running", "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                    Environment.Exit(0);
+                    Process.GetProcessById(Process.GetCurrentProcess().Id).Kill();
                 }
-            } finally {
-                if (detectRunningNFSW != null) {
-                    detectRunningNFSW.Close();
-                    detectRunningNFSW = null;
-                }
-            }
 
-            Mutex mutex = new Mutex(false, "GameLauncherNFSW-MeTonaTOR"); //Forgot about other launchers...
-            try {
-                if (mutex.WaitOne(0, false)) {
-                    //First of all, we need to check if files exists
-                    String[] files = { "Newtonsoft.Json.dll", "LZMA.dll", "ICSharpCode.SharpZipLib.dll" };
-                    List<string> missingfiles = new List<string>();
+                var mutex = new Mutex(false, "GameLauncherNFSW-MeTonaTOR");
+                try
+                {
+                    if (mutex.WaitOne(0, false))
+                    {
+                        string[] files =
+                        {
+                            "Newtonsoft.Json.dll",
+                            "INIFileParser.dll",
+                            "Microsoft.WindowsAPICodePack.dll",
+                            "Microsoft.WindowsAPICodePack.Shell.dll",
+                            "Flurl.dll",
+                            "Flurl.Http.dll",
+                            "BlackListedServers.dat"
+                        };
+                        var missingfiles = new List<string>();
 
-                    foreach (string file in files) {
-                        if (!File.Exists(file)) {
-                            missingfiles.Add(file);
+                        foreach (var file in files)
+                        {
+                            if (!File.Exists(file))
+                            {
+                                missingfiles.Add(file);
+                            }
                         }
-                    }
 
-                    if (missingfiles.Count != 0) {
-                        string message = "Cannot launch GameLauncher. The following files are missing:\n\n";
+                        if (missingfiles.Count != 0)
+                        {
+                            var message = "Cannot launch GameLauncher. The following files are missing:\n\n";
 
-                        foreach (string file in missingfiles) {
-                            message += "• " + file + "\n";
+                            foreach (var file in missingfiles)
+                            {
+                                message += "• " + file + "\n";
+                            }
+
+                            message += "\nCurrent directory: " + Directory.GetCurrentDirectory();
+
+                            MessageBox.Show(null, message, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Environment.Exit(1);
                         }
 
-                        message += "\nCurrent directory: " + Directory.GetCurrentDirectory();
-                        message += "\nYou will be moved to the project page for re-download.";
+                        ServerProxy.Instance.Start();
 
-                        MessageBox.Show(null, message, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        Process.Start(@"https://github.com/metonator/GameLauncher_NFSW/releases");
-                        Environment.Exit(1);
-                    }
-
-                    if (Environment.OSVersion.Version.Major >= 6) {
-                        User32.SetProcessDPIAware();
-                    }
-
-                    //try {
                         Application.EnableVisualStyles();
                         Application.SetCompatibleTextRenderingDefault(false);
-                        Application.Run(new mainScreen());
-                    //} catch(Exception ex) {
-                    //    if(linux == true) {
-                    //        extraLinuxInfo = "\n\nAditionally, please report that you're using Wine/Mono Runtime and your Linux Distro";
-                    //    }
-
-                    //    MessageBox.Show(null, "Failed to launch GameLauncher. " + ex.Message + "\n\nStack Trace:\n" + ex.StackTrace + extraLinuxInfo, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    //    Environment.Exit(1);
-                    //}
-                } else {
-                    MessageBox.Show(null, "An instance of the application is already running.", "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Application.Run(new MainScreen());
+                    }
+                    else
+                    {
+                        MessageBox.Show(null, "An instance of the application is already running.", "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
-            } finally {
-                if (mutex != null) {
+                finally
+                {
                     mutex.Close();
                     mutex = null;
                 }

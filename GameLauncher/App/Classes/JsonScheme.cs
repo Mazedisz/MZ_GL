@@ -18,5 +18,18 @@ namespace SoapBox.JsonScheme {
         public int onlineNumber { get; set; }
         public string requireTicket { get; set; }
         public string serverVersion { get; set; }
+        public string passwordHashing { get; set; }
+        public int maxUsersAllowed { get; set; }
+        public string allowedCountries { get; set; }
+    }
+
+    public class ObjList {
+        public string id { get; set; }
+        public int x { get; set; }
+        public int y { get; set; }
+    }
+
+    public class FreeroamObject {
+        public List<ObjList> objList { get; set; }
     }
 }
